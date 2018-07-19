@@ -1,0 +1,14 @@
+{
+  "name": "stomt-discord-bot",
+  "version": "0.0.1",
+  "description": "Connect Discord with STOMT",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Max Klenk <max@klenk.biz>",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^11.3.2"
+  }
+}
