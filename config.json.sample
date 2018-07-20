@@ -1,4 +1,6 @@
 {
     "prefix": "!",
-    "token": "your-token-goes-here"
+    "token": "your-token-goes-here",
+    "api_endpoint": "stomt-api-endpoint",
+    "app_id": "your-stomt-app-id"
 }
