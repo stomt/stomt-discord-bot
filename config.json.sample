@@ -1,6 +1,5 @@
 {
-    "prefix": "!",
-    "token": "your-token-goes-here",
-    "api_endpoint": "stomt-api-endpoint",
-    "app_id": "your-stomt-app-id"
+    "discord_app_token": "your-token-goes-here",
+    "stomt_api_endpoint": "stomt-api-endpoint",
+    "stomt_app_id": "your-stomt-app-id"
 }

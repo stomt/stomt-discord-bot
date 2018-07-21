@@ -1,11 +1,14 @@
 const Discord = require('discord.js');
-const config = require('./config.json');
 const fetch = require('node-fetch');
 const client = new Discord.Client();
+var configFile = {};
+try {
+    configFile = require('./config.json');
+} catch (ex) {
+    // process.env may be available
+}
 
-client.on('ready', () => {
-	console.log('Ready!');
-});
+/// CONSTANTS ///
 
 const events = {
 	MESSAGE_REACTION_ADD: 'messageReactionAdd',
@@ -23,46 +26,73 @@ const emojis = {
 const upvote_emoji = emojis.heart;
 const downvote_emoji = emojis.heavy_multiplication_x;
 
+const config = {
+	token: process.env.DISCORD_APP_TOKEN || configFile.discord_app_token,
+    api_endpoint: process.env.STOMT_API_ENDPOINT || configFile.stomt_api_endpoint,
+    app_id: process.env.STOMT_APP_ID || configFile.stomt_app_id
+};
+
+
+/// HELPER FUNCTIONS ///
+
 function getStomtLink(message) {
 	if (message && message.embeds && message.embeds.length > 0 && message.embeds[0].url) {
-		if (isStomtLink(message.embeds[0].url)) {
-			return message.embeds[0].url;
+		const link = extractStomtLink(message.embeds[0].url)
+		if (link) {
+			return link;
+		}
+
+		const shortLink = extractStomtShortLink(message.embeds[0].url)
+		if (shortLink) {
+			return shortLink;
 		}
 	}
 
 	if (message && message.content) {
-		const urlRegex = new RegExp('(http|https)://([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?');
-		const results = message.content.match(urlRegex);
-		if (results && results.length > 0) {
-			if (isStomtLink(results.length[0])) {
-				return results.length[0];
-			}
+		const link = extractStomtLink(message.content)
+		if (link) {
+			return link;
+		}
+
+		const shortLink = extractStomtShortLink(message.content)
+		if (shortLink) {
+			return shortLink;
 		}
 	}
 
 	return false;
 }
 
-function isStomtLink(url) {
-	if (url.startsWith('http://stomt.co')) {
-		return true;
+function extractStomtLink(text) {
+	// Stomt links (e.g. https://www.stomt.com/stomt/teamwork-webhook)
+	const urlRegex = /(https?:\/\/www.stomt.com\/.+\/[^\s]+)/g;
+	const results = text.match(urlRegex);
+	if (results && results.length > 0) {
+		return results[0];
 	}
-	if (url.startsWith('https://stomt.co')) {
-		return true;
+}
+
+function extractStomtShortLink(text) {
+	// Short Stomt links (e.g. https://stomt.co/gtKug)
+	const urlRegex = /(https?:\/\/stomt.co\/[^\s]+)/g;
+	const results = text.match(urlRegex);
+	if (results && results.length > 0) {
+		return results[0];
 	}
-	if (url.startsWith('http://stomt.com')) {
-		return true;
+}
+
+function shouldReactionBeHandeled(reaction, user) {
+	// Is by bot?
+	if (user.bot) {
+		return false;
 	}
-	if (url.startsWith('https://stomt.com')) {
-		return true;
+
+	// Is allowed reaction?
+	if (reaction.emoji.name !== upvote_emoji && reaction.emoji.name !== downvote_emoji) {
+		return false;
 	}
-	if (url.startsWith('http://www.stomt.com')) {
-		return true;
-	}
-	if (url.startsWith('https://www.stomt.com')) {
-		return true;
-	}
-	return false;
+
+	return true;
 }
 
 function sendApiRequestPost(url, data) {
@@ -82,8 +112,14 @@ function sendApiRequestPost(url, data) {
 	    .then(res => res.json());
 }
 
-client.on('raw', async event => {
 
+/// EVENTS ///
+
+/**
+ * Choose which Discord events will be handeled further
+ * and extend the results.
+ */
+client.on('raw', async event => {
 	// reaction events
 	if (event.t === 'MESSAGE_REACTION_ADD' || events.t === 'MESSAGE_REACTION_REMOVE') {
 		const { d: data } = event;
@@ -120,23 +156,19 @@ client.on('raw', async event => {
 		client.emit(events[event.t], message, user);
 	}
 
+	// ready event
+	if (event.t === 'READY') {
+		console.log('Ready!');
+	}
 });
 
+/**
+ * Handle all added reactions and send valid ones to the
+ * STOMT servers.
+ */
 client.on('messageReactionAdd', (reaction, user) => {
-
-	// Is by bot?
-	if (user.bot) {
-		return;
-	}
-
-	// Is on Stomt link?
 	const stomtLink = getStomtLink(reaction.message);
-	if (!stomtLink) {
-		return;
-	}
-
-	// Is allowed reaction?
-	if (reaction.emoji.name !== upvote_emoji && reaction.emoji.name !== downvote_emoji) {
+	if (!stomtLink || !shouldReactionBeHandeled(reaction, user)) {
 		return;
 	}
 
@@ -154,20 +186,13 @@ client.on('messageReactionAdd', (reaction, user) => {
 		.then(json => console.log(json));
 });
 
+/**
+ * Handle all removed reactions and send valid ones to the
+ * STOMT servers.
+ */
 client.on('messageReactionRemove', (reaction, user) => {
-	// Is by bot?
-	if (user.bot) {
-		return;
-	}
-
-	// Is on Stomt link?
 	const stomtLink = getStomtLink(reaction.message);
-	if (!stomtLink) {
-		return;
-	}
-
-	// Is allowed reaction?
-	if (reaction.emoji.name !== upvote_emoji && reaction.emoji.name !== downvote_emoji) {
+	if (!stomtLink || !shouldReactionBeHandeled(reaction, user)) {
 		return;
 	}
 
@@ -185,15 +210,33 @@ client.on('messageReactionRemove', (reaction, user) => {
 		.then(json => console.log(json));
 });
 
-client.on('messageCreate', (message, user) => {
+/**
+ * Let bot add reactions on every posted Stomt link, so users
+ * just have to click on the reaction.
+ */
+client.on('messageCreate', async (message, user) => {
 	const stomtLink = getStomtLink(message);
 	if (!stomtLink) {
 		return;
 	}
 
+	// validate link
+	const url = config.api_endpoint + '/validateLink'
+	const data = {
+		stomt_link: stomtLink
+	};
+
+	const resonse = await sendApiRequestPost(url, data);
+	if (resonse.error) {
+		return; // No Stomt found for this link
+	}
+
 	message
 		.react(upvote_emoji)
 		.then(() => message.react(downvote_emoji));
-})
+	});
 
+/**
+ * Connect to all authorized Discord Guilds
+ */
 client.login(config.token);
