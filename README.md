@@ -1,11 +1,11 @@
 # STOMT Discord Bot
 
-![Sync Votes Example](https://raw.githubusercontent.com/stomt/stomt-discord-bot/master/docu/discord-stomt-vote-sync.png)
+<img alt="Invite STOMT Bot to Discord" src="https://raw.githubusercontent.com/stomt/stomt-discord-bot/master/docu/discord-stomt-vote-sync.png" />
 
 This bot syncs [Discord](https://discordapp.com/) servers (guilds) with [STOMT](https://www.stomt.com/). It talks to the [STOMT API](https://rest.stomt.com/) to allow users interact with STOMT from inside Discord.
 
 <a href="https://discordapp.com/oauth2/authorize?client_id=469393453206470658&scope=bot" target="_blanc" align="center">
-	<img alt="Invite STOMT Bot to Discord" src="https://raw.githubusercontent.com/stomt/stomt-discord-bot/master/docu/add-stomt-bot-button.png.png" />
+	<img alt="Invite STOMT Bot to Discord" src="https://raw.githubusercontent.com/stomt/stomt-discord-bot/master/docu/add-stomt-bot-button.png" />
 </a>
 
 
