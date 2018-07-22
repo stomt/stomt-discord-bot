@@ -23,61 +23,58 @@ const emojis = {
 	heavy_multiplication_x: "✖",
 	x: "❌"
 };
-const upvote_emoji = emojis.heart;
-const downvote_emoji = emojis.heavy_multiplication_x;
+
+const urlRegexesEnvironments = {
+	production: [
+		/(https?:\/\/www.stomt.com\/.+\/[^\s]+)/g, // Stomt links (e.g. https://www.stomt.com/stomt/teamwork-webhook)
+		/(https?:\/\/stomt.co\/[^\s]+)/g, // Short Stomt links (e.g. https://stomt.co/gtKug)
+	],
+	staging: [
+		/(https?:\/\/test.stomt.com\/.+\/[^\s]+)/g,
+		/(https?:\/\/test.stomt.co\/[^\s]+)/g,
+	],
+	local: [
+		/(https?:\/\/stomt.web\/.+\/[^\s]+)/g,
+		/(https?:\/\/stomt.short\/[^\s]+)/g,
+	]
+};
+
+
+/// CONFIG ///
 
 const config = {
 	token: process.env.DISCORD_APP_TOKEN || configFile.discord_app_token,
     api_endpoint: process.env.STOMT_API_ENDPOINT || configFile.stomt_api_endpoint,
-    app_id: process.env.STOMT_APP_ID || configFile.stomt_app_id
+    app_id: process.env.STOMT_APP_ID || configFile.stomt_app_id,
+    environment: process.env.ENVIRONMENT || configFile.environment,
 };
-
+const upvote_emoji = emojis.heart;
+const downvote_emoji = emojis.heavy_multiplication_x;
+const urlRegexes = urlRegexesEnvironments[config.environment];
 
 /// HELPER FUNCTIONS ///
 
 function getStomtLink(message) {
+	var texts = [];
 	if (message && message.embeds && message.embeds.length > 0 && message.embeds[0].url) {
-		const link = extractStomtLink(message.embeds[0].url)
-		if (link) {
-			return link;
-		}
-
-		const shortLink = extractStomtShortLink(message.embeds[0].url)
-		if (shortLink) {
-			return shortLink;
-		}
+		texts.push(message.embeds[0].url);
 	}
 
 	if (message && message.content) {
-		const link = extractStomtLink(message.content)
-		if (link) {
-			return link;
-		}
-
-		const shortLink = extractStomtShortLink(message.content)
-		if (shortLink) {
-			return shortLink;
-		}
+		texts.push(message.content);
 	}
 
-	return false;
+	return extractLink(texts);
 }
 
-function extractStomtLink(text) {
-	// Stomt links (e.g. https://www.stomt.com/stomt/teamwork-webhook)
-	const urlRegex = /(https?:\/\/www.stomt.com\/.+\/[^\s]+)/g;
-	const results = text.match(urlRegex);
-	if (results && results.length > 0) {
-		return results[0];
-	}
-}
-
-function extractStomtShortLink(text) {
-	// Short Stomt links (e.g. https://stomt.co/gtKug)
-	const urlRegex = /(https?:\/\/stomt.co\/[^\s]+)/g;
-	const results = text.match(urlRegex);
-	if (results && results.length > 0) {
-		return results[0];
+function extractLink(texts) {
+	for (var i in texts) {
+		for (var j in urlRegexes) {
+			const results = texts[i].match(urlRegexes[j]);
+			if (results && results.length > 0) {
+				return results[0];
+			}
+		}
 	}
 }
 
@@ -109,7 +106,8 @@ function sendApiRequestPost(url, data) {
 	};
 
 	return fetch(url, options)
-	    .then(res => res.json());
+	    .then(res => res.json())
+	    .catch(err => console.error(err));
 }
 
 
@@ -155,6 +153,31 @@ client.on('raw', async event => {
 
 		client.emit(events[event.t], message, user);
 	}
+
+
+	// connected to new guild
+	if (event.t === 'GUILD_CREATE') {
+		const { d: data } = event;
+		const guild = await client.guilds.get(data.id);
+
+		console.log('CONNECTED TO GUILD');
+		console.log('name:   ', guild.name);
+		console.log('id:     ', guild.id);
+		console.log('members:', guild.memberCount);
+
+		guild.channels.forEach( async channel => {
+			if (channel.type === 'text') {
+				channel.fetchMessages({ limit: 20 })
+					.then(messages => {
+						messages.forEach(message => {
+							client.emit(events['MESSAGE_CREATE'], message, message.author);
+						});
+					})
+					.catch(console.error);
+			}
+		});
+	}
+
 
 	// ready event
 	if (event.t === 'READY') {
