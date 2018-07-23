@@ -165,7 +165,7 @@ client.on('raw', async event => {
 		console.log('id:     ', guild.id);
 		console.log('members:', guild.memberCount);
 
-		guild.channels.forEach( async channel => {
+		guild.channels.forEach(channel => {
 			if (channel.type === 'text') {
 				channel.fetchMessages({ limit: 20 })
 					.then(messages => {
@@ -173,11 +173,25 @@ client.on('raw', async event => {
 							client.emit(events['MESSAGE_CREATE'], message, message.author);
 						});
 					})
-					.catch(console.error);
+					.catch(err => console.error('Failed to read messages', err));
 			}
 		});
 	}
 
+	// access to channel changed
+	if (event.t === 'CHANNEL_UPDATE') {
+		const { d: data } = event;
+		const channel = await client.channels.get(data.id);
+		if (channel.type === 'text') {
+			channel.fetchMessages({ limit: 20 })
+				.then(messages => {
+					messages.forEach(message => {
+						client.emit(events['MESSAGE_CREATE'], message, message.author);
+					});
+				})
+				.catch(err => console.error('Failed to read messages', err));
+		}
+	}
 
 	// ready event
 	if (event.t === 'READY') {
