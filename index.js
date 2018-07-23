@@ -14,6 +14,7 @@ const events = {
 	MESSAGE_REACTION_ADD: 'messageReactionAdd',
 	MESSAGE_REACTION_REMOVE: 'messageReactionRemove',
 	MESSAGE_CREATE: 'messageCreate',
+	CHANNEL_UPDATE: 'channelUpdate',
 };
 
 const emojis = {
@@ -167,13 +168,7 @@ client.on('raw', async event => {
 
 		guild.channels.forEach(channel => {
 			if (channel.type === 'text') {
-				channel.fetchMessages({ limit: 20 })
-					.then(messages => {
-						messages.forEach(message => {
-							client.emit(events['MESSAGE_CREATE'], message, message.author);
-						});
-					})
-					.catch(err => console.error('Failed to read messages', err));
+				client.emit(events['CHANNEL_UPDATE'], channel);
 			}
 		});
 	}
@@ -183,13 +178,7 @@ client.on('raw', async event => {
 		const { d: data } = event;
 		const channel = await client.channels.get(data.id);
 		if (channel.type === 'text') {
-			channel.fetchMessages({ limit: 20 })
-				.then(messages => {
-					messages.forEach(message => {
-						client.emit(events['MESSAGE_CREATE'], message, message.author);
-					});
-				})
-				.catch(err => console.error('Failed to read messages', err));
+			client.emit(events['CHANNEL_UPDATE'], channel);
 		}
 	}
 
@@ -271,7 +260,21 @@ client.on('messageCreate', async (message, user) => {
 	message
 		.react(upvote_emoji)
 		.then(() => message.react(downvote_emoji));
-	});
+});
+
+
+/**
+ * Check last messages of channel for Stomt links.
+ */
+client.on('channelUpdate', (channel) => {
+	channel.fetchMessages({ limit: 20 })
+		.then(messages => {
+			messages.forEach(message => {
+				client.emit(events['MESSAGE_CREATE'], message, message.author);
+			});
+		})
+		.catch(err => console.error('Failed to read messages', err));
+});
 
 /**
  * Connect to all authorized Discord Guilds
