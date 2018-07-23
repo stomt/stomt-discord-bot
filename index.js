@@ -161,6 +161,11 @@ client.on('raw', async event => {
 		const { d: data } = event;
 		const guild = await client.guilds.get(data.id);
 
+		if (!guild) {
+			console.log('Can\'t load guild:', data);
+			return;
+		}
+
 		console.log('CONNECTED TO GUILD');
 		console.log('name:   ', guild.name);
 		console.log('id:     ', guild.id);
