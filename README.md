@@ -7,7 +7,7 @@
 This bot syncs [Discord](https://discordapp.com/) servers (guilds) with [STOMT](https://www.stomt.com/). It talks to the [STOMT API](https://rest.stomt.com/) to allow users interact with STOMT from inside Discord.
 
 <p align="center">
-	<a href="https://discordapp.com/oauth2/authorize?client_id=469393453206470658&scope=bot" target="_blank">
+	<a href="https://stomt.co/invite-discord-bot" target="_blank">
 		<img alt="Invite STOMT Bot to Discord" src="https://raw.githubusercontent.com/stomt/stomt-discord-bot/master/docu/add-stomt-bot-button.png" />
 	</a>
 </p>
