@@ -95,7 +95,6 @@ function shouldReactionBeHandeled(reaction, user) {
 
 function sendApiRequestPost(url, data) {
 	console.log('POST', url);
-	console.log('data:', data);
 
 	const options = {
 	    method: 'POST',
@@ -108,6 +107,15 @@ function sendApiRequestPost(url, data) {
 
 	return fetch(url, options)
 	    .then(res => res.json())
+	    .then(json => {
+	    	if (!json.data || json.error) {
+	    		console.log('Request failed:', json.error);
+	    		console.log(' > POST', url);
+	    		console.log(' > data:', data);
+	    		console.log(' > response:', json);
+	    	}
+	    	return json;
+	    })
 	    .catch(err => console.error(err));
 }
 
@@ -157,9 +165,9 @@ client.on('raw', async event => {
 		const guild = await client.guilds.get(data.id);
 
 		console.log('CONNECTED TO GUILD');
-		console.log('name:   ', guild.name);
-		console.log('id:     ', guild.id);
-		console.log('members:', guild.memberCount);
+		console.log(' > name:   ', guild.name);
+		console.log(' > id:     ', guild.id);
+		console.log(' > members:', guild.memberCount);
 
 		guild.channels.forEach(channel => {
 			if (channel.type === 'text') {
@@ -218,8 +226,8 @@ function removeOtherReaction(reaction, user) {
 		if (err.code === 50013) { // Missing Permissions
 			console.warn(
 				  '[MANAGE_MESSAGES] No permissions to remove reactions in \n'
-				+ ' > Guild: ' + reaction.message.channel.guild.name + " (" + reaction.message.channel.guild.id + ")\n"
-				+ ' > Channel: ' + reaction.message.channel.name + " (" + reaction.message.channel.id + ")\n"
+				+ ' > guild: ' + reaction.message.channel.guild.name + " (" + reaction.message.channel.guild.id + ")\n"
+				+ ' > channel: ' + reaction.message.channel.name + " (" + reaction.message.channel.id + ")\n"
 			);
 		} else {
 			console.error(err);
@@ -238,8 +246,7 @@ function addReactionOnSTOMT(reaction, user, stomtLink) {
 		positive: reaction.emoji.name === upvote_emoji
 	};
 
-	sendApiRequestPost(url, data)
-		.then(json => console.log(json));
+	sendApiRequestPost(url, data);
 }
 
 /**
@@ -266,8 +273,7 @@ function removeReactionOnSTOMT(reaction, user, stomtLink) {
 		positive: reaction.emoji.name === upvote_emoji
 	};
 
-	sendApiRequestPost(url, data)
-		.then(json => console.log(json));
+	sendApiRequestPost(url, data);
 }
 
 /**
