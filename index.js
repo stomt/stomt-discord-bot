@@ -11,10 +11,10 @@ try {
 /// CONSTANTS ///
 
 const events = {
-	MESSAGE_REACTION_ADD: 'messageReactionAdd',
-	MESSAGE_REACTION_REMOVE: 'messageReactionRemove',
-	MESSAGE_CREATE: 'messageCreate',
-	CHANNEL_UPDATE: 'channelUpdate',
+	MESSAGE_REACTION_ADD: 'addReaction',
+	MESSAGE_REACTION_REMOVE: 'removeReaction',
+	MESSAGE_CREATE: 'handleMessageCreation',
+	CHANNEL_UPDATE: 'handleChannelUpdate',
 };
 
 const emojis = {
@@ -120,19 +120,14 @@ function sendApiRequestPost(url, data) {
  */
 client.on('raw', async event => {
 	// reaction events
-	if (event.t === 'MESSAGE_REACTION_ADD' || events.t === 'MESSAGE_REACTION_REMOVE') {
+	if (event.t === 'MESSAGE_REACTION_ADD' || event.t === 'MESSAGE_REACTION_REMOVE') {
 		const { d: data } = event;
 		const user = client.users.get(data.user_id);
 		const channel = client.channels.get(data.channel_id) || await user.createDM();
 
-		if (channel.messages.has(data.message_id)) return;
-
 		const message = await channel.fetchMessage(data.message_id);
 		const emojiKey = (data.emoji.id) ? `${data.emoji.name}:${data.emoji.id}` : data.emoji.name;
 		let reaction = message.reactions.get(emojiKey);
-
-		// Can be used to validate all votes
-		//const users = await reaction.fetchUsers();
 
 		if (!reaction) {
 			const emoji = new Discord.Emoji(client.guilds.get(data.guild_id), data.emoji);
@@ -192,12 +187,47 @@ client.on('raw', async event => {
  * Handle all added reactions and send valid ones to the
  * STOMT servers.
  */
-client.on('messageReactionAdd', (reaction, user) => {
+client.on(events.MESSAGE_REACTION_ADD, (reaction, user) => {
 	const stomtLink = getStomtLink(reaction.message);
 	if (!stomtLink || !shouldReactionBeHandeled(reaction, user)) {
 		return;
 	}
 
+	removeOtherReaction(reaction, user);
+	addReactionOnSTOMT(reaction, user, stomtLink);
+});
+
+function removeOtherReaction(reaction, user) {
+	let votes = null;
+	if (reaction.emoji.name === upvote_emoji) {
+		votes = reaction.message.reactions.get(downvote_emoji);
+	} else {
+		votes = reaction.message.reactions.get(upvote_emoji);
+	}
+
+	if (!votes) {
+		return;
+	}
+
+	// We could fetch the users first to check if the current user gave the
+	// other reaction aswell. But trying to remove it is also only one request.
+	//const users = await votes.fetchUsers();
+	//users.has(user.id);
+
+	votes.remove(user).catch(err => {
+		if (err.code === 50013) { // Missing Permissions
+			console.warn(
+				  '[MANAGE_MESSAGES] No permissions to remove reactions in \n'
+				+ ' > Guild: ' + reaction.message.channel.guild.name + " (" + reaction.message.channel.guild.id + ")\n"
+				+ ' > Channel: ' + reaction.message.channel.name + " (" + reaction.message.channel.id + ")\n"
+			);
+		} else {
+			console.error(err);
+		}
+	});
+}
+
+function addReactionOnSTOMT(reaction, user, stomtLink) {
 	const url = config.api_endpoint + '/addVote'
 	const data = {
 		message_id: reaction.message.id,
@@ -210,18 +240,22 @@ client.on('messageReactionAdd', (reaction, user) => {
 
 	sendApiRequestPost(url, data)
 		.then(json => console.log(json));
-});
+}
 
 /**
  * Handle all removed reactions and send valid ones to the
  * STOMT servers.
  */
-client.on('messageReactionRemove', (reaction, user) => {
+client.on(events.MESSAGE_REACTION_REMOVE, (reaction, user) => {
 	const stomtLink = getStomtLink(reaction.message);
 	if (!stomtLink || !shouldReactionBeHandeled(reaction, user)) {
 		return;
 	}
 
+	removeReactionOnSTOMT(reaction, user, stomtLink);
+});
+
+function removeReactionOnSTOMT(reaction, user, stomtLink) {
 	const url = config.api_endpoint + '/removeVote'
 	const data = {
 		message_id: reaction.message.id,
@@ -234,13 +268,13 @@ client.on('messageReactionRemove', (reaction, user) => {
 
 	sendApiRequestPost(url, data)
 		.then(json => console.log(json));
-});
+}
 
 /**
  * Let bot add reactions on every posted Stomt link, so users
  * just have to click on the reaction.
  */
-client.on('messageCreate', async (message, user) => {
+client.on(events.MESSAGE_CREATE, async (message, user) => {
 	const stomtLink = getStomtLink(message);
 	if (!stomtLink) {
 		return;
@@ -266,7 +300,7 @@ client.on('messageCreate', async (message, user) => {
 /**
  * Check last messages of channel for Stomt links.
  */
-client.on('channelUpdate', (channel) => {
+client.on(events.CHANNEL_UPDATE, (channel) => {
 	channel.fetchMessages({ limit: 20 })
 		.then(messages => {
 			messages.forEach(message => {
