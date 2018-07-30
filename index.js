@@ -378,7 +378,17 @@ client.on(events.CHANNEL_UPDATE, (channel) => {
 				client.emit(events['MESSAGE_CREATE'], message, message.author);
 			});
 		})
-		.catch(err => console.error('Failed to read messages', err));
+		.catch(err => {
+			if (err.code === 50001) {
+				console.warn(
+					  '[Missing Access] Failed to read messages in \n'
+					+ ' > guild: ' + channel.guild.name + " (" + channel.guild.id + ")\n"
+					+ ' > channel: ' + channel.name + " (" + channel.id + ")\n"
+				);
+			} else {
+				console.error('[Missing Access] Failed to read messages', err)
+			}
+		});
 });
 
 /**
