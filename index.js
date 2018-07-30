@@ -53,6 +53,10 @@ const upvote_emoji = emojis.heart;
 const downvote_emoji = emojis.heavy_multiplication_x;
 const urlRegexes = urlRegexesEnvironments[config.environment];
 
+const prefix = config.environment === 'production' ? '' : config.environment;
+const wish_commands = [prefix + '!iwish', prefix +  '.iwish', prefix +  'iwish', prefix +  '!wish', prefix +  '.wish'];
+const like_commands = [prefix + '!ilike', prefix +  '.ilike', prefix +  'ilike', prefix +  '!like', prefix +  '.like'];
+
 /// HELPER FUNCTIONS ///
 
 function getStomtLink(message) {
@@ -156,6 +160,10 @@ client.on('raw', async event => {
 		const message = await channel.fetchMessage(data.id);
 
 		client.emit(events[event.t], message, user);
+
+		if (!message.author.bot) {
+			client.emit('messageCommand', message, user);
+		}
 	}
 
 
@@ -163,6 +171,11 @@ client.on('raw', async event => {
 	if (event.t === 'GUILD_CREATE') {
 		const { d: data } = event;
 		const guild = await client.guilds.get(data.id);
+
+		if (!guild) {
+			console.log('Can\'t load guild:', data);
+			return;
+		}
 
 		console.log('CONNECTED TO GUILD');
 		console.log(' > name:   ', guild.name);
@@ -302,6 +315,58 @@ client.on(events.MESSAGE_CREATE, async (message, user) => {
 		.then(() => message.react(downvote_emoji));
 });
 
+/**
+ * Allow to create a Stomt from discord.
+ */
+client.on('messageCommand', async (message, user) => {
+	const args = message.content.split(/ +/);
+	const command = args.shift().toLowerCase();
+
+	// check command
+	if (!wish_commands.includes(command) && !like_commands.includes(command)) return;
+	const positive = like_commands.includes(command);
+
+	// check args
+	if (args.length < 2) {
+		if (positive) {
+			return message.channel.send(`Please specify who you want to address and write your like \`Ilike stomt because of this!\`, ${message.author}!`);
+		} else {
+			return message.channel.send(`Please specify who you want to address and write your wish \`IWish stomt would save this!\`, ${message.author}!`);
+		}
+	}
+
+	// submit
+	const target_id = args[0];
+	const text = args.slice(1).join(' ').substring(0, 120);
+	const url = config.api_endpoint + '/addStomt'
+	const data = {
+		message_id: message.id,
+		channel_id: message.channel.id,
+		guild_id: message.channel.guild.id,
+		user_id: user.id,
+
+		target_id: target_id,
+		text: text,
+		positive: false
+	};
+	const response = await sendApiRequestPost(url, data);
+
+	// answer
+	if (!response || !response.data || response.error) {
+		if (response.error === 'You already posted this stomt.') {
+			return message.channel.send(`You already posted this Stomt.`);
+		} else {
+			if (positive) {
+				return message.channel.send(`I was unable to find  \`${target_id}\` on STOMT, please specify who you want to address and write your like \`Ilike stomt-discord a lot!!!\`, ${message.author}!`);
+			} else {
+				return message.channel.send(`I was unable to find  \`${target_id}\` on STOMT, please specify who you want to address and write your wish \`Iwish stomt-discord would post my wish.\`, ${message.author}!`);
+			}
+		}
+	}
+
+	const embed = new Discord.RichEmbed(response.data.embed.embeds[0]);
+	message.channel.send(`Thanks ${message.author}, I saved your Stomt to the feedback directory, lets share and vote it.`, {embed});
+});
 
 /**
  * Check last messages of channel for Stomt links.
