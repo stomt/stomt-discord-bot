@@ -101,8 +101,8 @@ function sendApiRequestPost(url, data) {
 	console.log('POST', url);
 
 	const options = {
-	    method: 'POST',
-	    body:    JSON.stringify(data),
+	    method: 'post',
+	    body: JSON.stringify(data),
 	    headers: {
 	    	'Content-Type': 'application/json',
 	    	'AppId': config.app_id,
